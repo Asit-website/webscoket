@@ -83,13 +83,9 @@ wss.on('connection', (ws, req) => {
     lastActivity: new Date()
   });
 
-  ws.send(JSON.stringify({
-    type: 'welcome',
-    message: 'Connected to n8n WebSocket server',
-    clientId: clientId,
-    timestamp: new Date().toISOString(),
-    serverVersion: '1.0.0'
-  }));
+  // Don't send automatic welcome message to avoid triggering n8n workflow
+  // Only send welcome message if client specifically requests it
+  console.log(`Native WebSocket client connected: ${clientId} (waiting for messages)`);
 
   ws.on('message', (data) => {
     console.log(`Native WebSocket message from ${clientId}:`, data.toString());
