@@ -143,22 +143,29 @@ wss.on('connection', (ws, req) => {
         return;
       }
 
-      // Echo back the message
-      ws.send(JSON.stringify({
-        type: 'echo',
-        originalData: message,
+      // Send n8n-compatible message format
+      const n8nMessage = {
+        type: 'message',
+        data: message,
         timestamp: new Date().toISOString(),
-        clientId: clientId
-      }));
+        clientId: clientId,
+        source: 'websocket_server'
+      };
+
+      // Echo back the message in n8n format
+      ws.send(JSON.stringify(n8nMessage));
 
     } catch (error) {
-      // Handle non-JSON messages
-      ws.send(JSON.stringify({
-        type: 'echo',
-        originalData: data.toString(),
+      // Handle non-JSON messages - send as string data
+      const n8nMessage = {
+        type: 'message',
+        data: data.toString(),
         timestamp: new Date().toISOString(),
-        clientId: clientId
-      }));
+        clientId: clientId,
+        source: 'websocket_server'
+      };
+      
+      ws.send(JSON.stringify(n8nMessage));
     }
   });
 
@@ -194,9 +201,10 @@ app.post('/webhook/n8n', (req, res) => {
       nativeWebSocketClients.forEach((client, clientId) => {
         if (client.ws.readyState === WebSocket.OPEN) {
           client.ws.send(JSON.stringify({
-            type: 'n8n_broadcast',
+            type: 'message',
             data: data,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            source: 'webhook'
           }));
         }
       });
@@ -228,9 +236,10 @@ app.post('/webhook/n8n', (req, res) => {
       const nativeClient = nativeWebSocketClients.get(targetClient);
       if (nativeClient && nativeClient.ws.readyState === WebSocket.OPEN) {
         nativeClient.ws.send(JSON.stringify({
-          type: 'n8n_message',
+          type: 'message',
           data: data,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          source: 'webhook'
         }));
         
         res.json({
