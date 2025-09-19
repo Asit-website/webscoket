@@ -97,11 +97,9 @@ wss.on('connection', (ws, req) => {
     try {
       const message = JSON.parse(data.toString());
       
+      // Handle ping messages - don't send pong to avoid triggering n8n workflow
       if (message.op === 1) {
-        ws.send(JSON.stringify({
-          op: 2,
-          timestamp: new Date().toISOString()
-        }));
+        console.log(`Received ping from ${clientId}, not sending pong to avoid n8n trigger`);
         return;
       }
 
