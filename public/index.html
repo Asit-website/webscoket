@@ -450,37 +450,36 @@
             logsContainer.innerHTML = '<div class="log-entry log-info"><span class="timestamp">[System]</span> Logs cleared</div>';
         }
 
-        // Send event function
+        // Send event function - now uses HTTP trigger instead of WebSocket
         function sendEvent(eventType) {
-            if (!isConnected) {
-                addLog('Cannot send event: Not connected to WebSocket server', 'error');
-                return;
-            }
-
             const eventData = {
-                type: eventType,
-                event: eventType,
-                content: `Test ${eventType} event`,
-                data: {
-                    action: eventType,
-                    userId: 'web-interface',
-                    timestamp: new Date().toISOString(),
-                    source: 'web-interface'
-                },
-                timestamp: new Date().toISOString()
+                message: `Test ${eventType} event`,
+                eventType: eventType
             };
 
-            // Special handling for ping
-            if (eventType === 'ping') {
-                eventData.op = 1;
-            }
-
             try {
-                ws.send(JSON.stringify(eventData));
-                addLog(`Sent ${eventType} event`, 'sent', eventData);
-                updateLastActivity();
+                // Use HTTP POST to trigger n8n workflow
+                fetch('/trigger-n8n', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(eventData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLog(`Triggered ${eventType} event via HTTP`, 'sent', data);
+                        updateLastActivity();
+                    } else {
+                        addLog(`Failed to trigger ${eventType} event: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addLog(`Failed to trigger ${eventType} event: ${error.message}`, 'error');
+                });
             } catch (error) {
-                addLog(`Failed to send ${eventType} event: ${error.message}`, 'error');
+                addLog(`Failed to trigger ${eventType} event: ${error.message}`, 'error');
             }
         }
 

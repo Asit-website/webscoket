@@ -113,9 +113,9 @@ wss.on('connection', (ws, req) => {
     lastActivity: new Date()
   });
 
-  // Don't send automatic welcome message to avoid triggering n8n workflow
-  // Only send welcome message if client specifically requests it
-  console.log(`Native WebSocket client connected: ${clientId} (waiting for messages)`);
+  // Don't send any automatic messages to prevent n8n auto-execution
+  // n8n will wait for explicit messages from our web interface
+  console.log(`Native WebSocket client connected: ${clientId} (waiting for explicit messages)`);
 
   // Handle messages from native WebSocket clients
   ws.on('message', (data) => {
@@ -172,6 +172,51 @@ wss.on('connection', (ws, req) => {
     console.error(`Native WebSocket error for ${clientId}:`, error);
     nativeWebSocketClients.delete(clientId);
   });
+});
+
+// Special endpoint to trigger n8n workflow manually
+app.post('/trigger-n8n', (req, res) => {
+  console.log('Manual n8n trigger requested:', req.body);
+  
+  const { message, eventType } = req.body;
+  
+  try {
+    // Send message to all native WebSocket clients (n8n)
+    let sentCount = 0;
+    nativeWebSocketClients.forEach((client, clientId) => {
+      if (client.ws.readyState === WebSocket.OPEN) {
+        const triggerMessage = {
+          type: 'message',
+          data: {
+            event: eventType || 'message',
+            content: message || 'Manual trigger from web interface',
+            timestamp: new Date().toISOString(),
+            source: 'manual_trigger'
+          },
+          timestamp: new Date().toISOString(),
+          clientId: clientId,
+          source: 'manual_trigger'
+        };
+        
+        client.ws.send(JSON.stringify(triggerMessage));
+        sentCount++;
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: `Trigger sent to ${sentCount} n8n clients`,
+      sentCount: sentCount
+    });
+    
+  } catch (error) {
+    console.error('Manual trigger error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to trigger n8n workflow',
+      error: error.message
+    });
+  }
 });
 
 // REST API endpoints for n8n webhook integration
