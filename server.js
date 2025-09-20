@@ -113,10 +113,20 @@ wss.on('connection', (ws, req) => {
     lastActivity: new Date()
   });
 
-  // CRITICAL: Don't send ANY messages on connection to prevent n8n auto-execution
-  // n8n WebSocket Trigger Node will execute on ANY message it receives
-  // We will only send messages when explicitly triggered via /trigger-n8n endpoint
-  console.log(`Native WebSocket client connected: ${clientId} (NO automatic messages - waiting for manual trigger)`);
+  // Send a special "connection_ready" event that n8n can ignore
+  // This helps n8n know the connection is established without triggering workflow
+  const connectionMessage = {
+    event: "connection_ready",
+    data: {
+      status: "connected",
+      clientId: clientId,
+      timestamp: new Date().toISOString(),
+      message: "Connection established - waiting for manual triggers"
+    }
+  };
+  
+  ws.send(JSON.stringify(connectionMessage));
+  console.log(`Native WebSocket client connected: ${clientId} (sent connection_ready event)`);
 
   // Handle messages from native WebSocket clients
   ws.on('message', (data) => {
@@ -136,13 +146,34 @@ wss.on('connection', (ws, req) => {
         return;
       }
 
-      // CRITICAL: Don't echo back messages to prevent n8n auto-execution
-      // n8n will execute on ANY message it receives
-      console.log(`Received message from ${clientId}, but NOT echoing back to prevent n8n auto-execution`);
+      // Send a proper response for message events
+      const responseMessage = {
+        event: "message_received",
+        data: {
+          originalMessage: message,
+          timestamp: new Date().toISOString(),
+          clientId: clientId,
+          status: "received"
+        }
+      };
+      
+      ws.send(JSON.stringify(responseMessage));
+      console.log(`Sent response to ${clientId} for message event`);
 
     } catch (error) {
-      // Don't send any response to non-JSON messages either
-      console.log(`Received non-JSON message from ${clientId}, but NOT responding to prevent n8n auto-execution`);
+      // Handle non-JSON messages
+      const responseMessage = {
+        event: "message_received",
+        data: {
+          originalMessage: data.toString(),
+          timestamp: new Date().toISOString(),
+          clientId: clientId,
+          status: "received"
+        }
+      };
+      
+      ws.send(JSON.stringify(responseMessage));
+      console.log(`Sent response to ${clientId} for non-JSON message`);
     }
   });
 
