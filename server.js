@@ -170,17 +170,15 @@ app.post('/trigger-n8n', (req, res) => {
     let sentCount = 0;
     nativeWebSocketClients.forEach((client, clientId) => {
       if (client.ws.readyState === WebSocket.OPEN) {
+        // Send as a proper WebSocket message that n8n will recognize
         const triggerMessage = {
-          type: 'message',
+          event: eventType || 'message',
           data: {
-            event: eventType || 'message',
             content: message || 'Manual trigger from web interface',
             timestamp: new Date().toISOString(),
-            source: 'manual_trigger'
-          },
-          timestamp: new Date().toISOString(),
-          clientId: clientId,
-          source: 'manual_trigger'
+            source: 'manual_trigger',
+            clientId: clientId
+          }
         };
         
         client.ws.send(JSON.stringify(triggerMessage));
