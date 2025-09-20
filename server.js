@@ -113,9 +113,10 @@ wss.on('connection', (ws, req) => {
     lastActivity: new Date()
   });
 
-  // Don't send any automatic messages to prevent n8n auto-execution
-  // n8n will wait for explicit messages from our web interface
-  console.log(`Native WebSocket client connected: ${clientId} (waiting for explicit messages)`);
+  // CRITICAL: Don't send ANY messages on connection to prevent n8n auto-execution
+  // n8n WebSocket Trigger Node will execute on ANY message it receives
+  // We will only send messages when explicitly triggered via /trigger-n8n endpoint
+  console.log(`Native WebSocket client connected: ${clientId} (NO automatic messages - waiting for manual trigger)`);
 
   // Handle messages from native WebSocket clients
   ws.on('message', (data) => {
@@ -135,29 +136,13 @@ wss.on('connection', (ws, req) => {
         return;
       }
 
-      // Send n8n-compatible message format
-      const n8nMessage = {
-        type: 'message',
-        data: message,
-        timestamp: new Date().toISOString(),
-        clientId: clientId,
-        source: 'websocket_server'
-      };
-
-      // Echo back the message in n8n format
-      ws.send(JSON.stringify(n8nMessage));
+      // CRITICAL: Don't echo back messages to prevent n8n auto-execution
+      // n8n will execute on ANY message it receives
+      console.log(`Received message from ${clientId}, but NOT echoing back to prevent n8n auto-execution`);
 
     } catch (error) {
-      // Handle non-JSON messages - send as string data
-      const n8nMessage = {
-        type: 'message',
-        data: data.toString(),
-        timestamp: new Date().toISOString(),
-        clientId: clientId,
-        source: 'websocket_server'
-      };
-      
-      ws.send(JSON.stringify(n8nMessage));
+      // Don't send any response to non-JSON messages either
+      console.log(`Received non-JSON message from ${clientId}, but NOT responding to prevent n8n auto-execution`);
     }
   });
 
